@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OnCloud33 – Mahaprasad Donations</title>
+<style>
+:root{--o:#d9531e;--d:#7a2a0b;--bg:#fff7ef}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:#2b2b2b}
+header{background:linear-gradient(135deg,var(--o),#f5a623);color:#fff;text-align:center;padding:28px 16px}
+header h1{margin:0;font-size:1.8rem}header p{margin:6px 0 0;opacity:.95}
+main{max-width:900px;margin:auto;padding:16px}
+section{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 1px 4px #0001}
+h2{margin-top:0;color:var(--d);font-size:1.15rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+label{font-size:.85rem;font-weight:600;display:block;margin-bottom:4px}
+input,select{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:1rem}
+.cat{background:#fde7d8;color:var(--d);font-weight:700;padding:8px 10px;border-radius:8px;margin:14px 0 6px}
+.item{display:grid;grid-template-columns:1fr 100px 100px 140px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid #eee}
+.item .amt{background:#fff3e8;font-weight:700;color:var(--d);text-align:right}
+@media(max-width:620px){.item{grid-template-columns:1fr 1fr 1fr}.item>div:first-child{grid-column:1/-1}}
+.item small{color:#666;display:block}
+.item.taken{opacity:.6}
+.badge{font-size:.75rem;color:#1b7a3a;font-weight:600}
+.bar{position:sticky;bottom:0;background:#fff;border-top:2px solid var(--o);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+button{background:var(--o);color:#fff;border:0;border-radius:8px;padding:12px 24px;font-size:1rem;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5}
+#result{display:none;text-align:center}
+#result img{max-width:260px;width:100%;border:1px solid #ddd;border-radius:12px}
+.ok{color:#1b7a3a;font-weight:700}
+.err{color:#b00020}
+.pb{margin:10px 0}
+.pb .t{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:3px;gap:8px;flex-wrap:wrap}
+.pb .track{height:14px;background:#eee;border-radius:7px;overflow:hidden}
+.pb .fill{height:100%;background:linear-gradient(90deg,#f5a623,#2e9e4f);border-radius:7px;transition:width .4s}
+.pb.all .track{height:20px}.pb.all .t{font-size:1rem;font-weight:700;color:var(--d)}
+</style>
+</head>
+<body>
+<header style="position:relative">
+  <button id="admToggle" style="position:absolute;top:10px;right:10px;padding:6px 12px;font-size:.8rem;background:#0003">🔒 Admin</button>
+  <h1>🪔 OnCloud33 – Mahaprasad Donations</h1>
+  <p>Dussehra &amp; Navratri Celebrations · Pick the items you'd like to contribute</p>
+</header>
+<main>
+<div id="pub">
+<section id="progress"><h2>Pledge status</h2><div id="pbars">Loading…</div></section>
+<form id="f">
+  <section>
+    <h2>Your details</h2>
+    <div class="grid">
+      <div><label>Name *</label><input name="name" required></div>
+      <div><label>Tower *</label>
+        <select name="tower" required><option value="">Select</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      <div><label>Flat number *</label><input name="flat" required inputmode="numeric" pattern="[0-9]+"></div>
+      <div><label>Mobile number *</label><input name="mobile" required inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="10 digits"></div>
+    </div>
+  </section>
+  <section>
+    <h2>Items needed</h2>
+    <p style="margin-top:0;font-size:.9rem">For each item you want to contribute: enter the <b>quantity</b>, see the <b>amount</b>, then choose <b>Cash</b> or <b>Physical item</b>.</p>
+    <div id="items"></div>
+  </section>
+  <section id="paybox" style="display:none;text-align:center">
+    <h2>Cash payment</h2>
+    <p>Pay <b>₹<span id="payamt">0</span></b> using any UPI app, then upload the payment screenshot.</p>
+    <img src="upi-qr.jpg" alt="UPI QR" style="max-width:240px;width:100%;border:1px solid #ddd;border-radius:12px">
+    <p>UPI ID: <b>Q099884932@ybl</b></p>
+    <label>Payment screenshot / mandate *</label>
+    <input type="file" id="proof" accept="image/*" style="max-width:360px">
+  </section>
+  <div class="bar">
+    <div><span id="count">0 items</span> · Cash payable: <b>₹<span id="cash">0</span></b></div>
+    <button id="btn" type="submit">Submit donation</button>
+  </div>
+</form>
+<section id="result"></section>
+</div>
+
+<div id="adm" style="display:none">
+  <section id="login" style="max-width:380px;margin:30px auto;text-align:center">
+    <h2>Admin login</h2>
+    <form id="lf" style="display:flex;gap:8px"><input type="password" id="pw" placeholder="Password" required><button style="padding:10px 20px">View</button></form>
+    <p id="msg" class="err"></p>
+  </section>
+  <div id="app" style="display:none">
+    <section>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="aq" placeholder="Search name, flat, item…" style="flex:1;min-width:180px;width:auto">
+        <select id="amode" style="width:auto"><option value="">All modes</option><option>Cash</option><option>Physical item</option></select>
+        <button id="arefresh">Refresh</button><button id="acsv">CSV</button><button id="axls">Excel</button>
+      </div>
+      <p id="asum" style="display:flex;gap:16px;flex-wrap:wrap;font-weight:600"></p>
+    </section>
+    <section style="overflow:auto;max-height:65vh"><table id="at" style="border-collapse:collapse;width:100%;font-size:.85rem"></table></section>
+  </div>
+</div>
+</main>
+<style>#at th,#at td{border:1px solid #ddd;padding:6px 8px;text-align:left;white-space:nowrap}#at th{background:#fde7d8;position:sticky;top:0}</style>
+<script>
+(()=>{
+const q=s=>document.querySelector(s);
+let pw="",head=[],data=[];
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+q("#admToggle").onclick=()=>{
+  const open=q("#adm").style.display!=="none";
+  q("#adm").style.display=open?"none":"block"; q("#pub").style.display=open?"block":"none";
+  q("#admToggle").textContent=open?"🔒 Admin":"← Back to donations";
+};
+async function load(){
+  const r=await fetch(`${SCRIPT_URL}?action=admin&pw=${encodeURIComponent(pw)}`), j=await r.json();
+  if(j.error) throw new Error("Wrong password");
+  head=j.rows[0]; data=j.rows.slice(1).reverse(); draw();
+}
+const filt=()=>{const s=q("#aq").value.toLowerCase(),m=q("#amode").value;
+  return data.filter(r=>(!m||r[8]===m)&&(!s||r.join(" ").toLowerCase().includes(s)))};
+function draw(){
+  const rows=filt(), sum=m=>rows.filter(r=>m(r[8])).reduce((t,r)=>t+(+r[7]||0),0);
+  q("#asum").innerHTML=`<span>Rows: ${rows.length}</span><span>Donors: ${new Set(rows.map(r=>r[2]+r[3])).size}</span><span>Cash: ₹${sum(x=>x==="Cash").toLocaleString("en-IN")}</span><span>Physical (value): ₹${sum(x=>x!=="Cash").toLocaleString("en-IN")}</span>`;
+  q("#at").innerHTML="<tr>"+head.map(h=>`<th>${esc(h)}</th>`).join("")+"</tr>"+rows.map(r=>"<tr>"+r.map(c=>/^https?:\/\//.test(c)?`<td><a href="${esc(c)}" target="_blank">View</a></td>`:`<td>${esc(c)}</td>`).join("")+"</tr>").join("");
+}
+const dl=(n,t,c)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click()};
+const day=()=>new Date().toISOString().slice(0,10);
+q("#acsv").onclick=()=>dl(`donations-${day()}.csv`,"text/csv;charset=utf-8","\ufeff"+[head,...filt()].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n"));
+q("#axls").onclick=()=>dl(`donations-${day()}.xls`,"application/vnd.ms-excel",
+  `<html><head><meta charset="UTF-8"></head><body><table border="1"><tr>${head.map(h=>`<th>${esc(h)}</th>`).join("")}</tr>`+
+  filt().map(r=>"<tr>"+r.map((c,i)=>`<td${i===3?' style="mso-number-format:\\@"':""}>${esc(c)}</td>`).join("")+"</tr>").join("")+"</table></body></html>");
+q("#aq").oninput=q("#amode").onchange=draw;
+q("#arefresh").onclick=()=>load().catch(e=>alert(e.message));
+q("#lf").onsubmit=async e=>{e.preventDefault();pw=q("#pw").value;q("#msg").textContent="Checking…";
+  try{await load();q("#login").style.display="none";q("#app").style.display="block";q("#msg").textContent=""}
+  catch(err){q("#msg").textContent=err.message}};
+})();
+</script>
+
+<script>
+// ====== CONFIG ======
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxfGc3KDG51bi42YukwOdJEkvMJ6_3wKEONMI656qAYbLRu0cCxXdLkyzJurdgZzyMqdg/exec";
+const UPI_ID = "Q099884932@ybl";
+// ====================
+
+let DATA = {};   // filled from the "Items" tab of the Google Sheet
+const $=s=>document.querySelector(s), inr=n=>n.toLocaleString("en-IN");
+let idx=0, taken={};
+
+function render(){
+  $("#items").innerHTML = Object.entries(DATA).map(([cat,list])=>
+    `<div class="cat">${cat}</div>`+list.map(([n,q,a])=>{
+      const m=q.match(/^([\d.]+)\s*(.*)$/), total=parseFloat(m[1]), unit=m[2];
+      const t=taken[n]||{qty:0,phys:0,by:""}, r2=x=>Math.round(x*100)/100;
+      const left=r2(Math.max(0,total-t.qty)), physMax=r2(total*1.2-t.phys), physFull=physMax<=0;
+      return `<div class="item ${physFull?'taken':''}">
+        <div>${n}<small>Needed ${q} · ₹${inr(a)} total${t.qty?(left>0?` · <b>${left} ${unit} still needed</b>`:' · <b>requirement met</b>'):''}${physFull?' · physical limit (120%) reached, cash still welcome':''}</small>${t.by?`<span class="badge">✔ Pledged by ${t.by}</span>`:''}</div>
+        <input class="q" type="number" min="0.5" step="0.5" placeholder="Qty (${unit})" title="Quantity (${unit})">
+        <input class="amt" readonly tabindex="-1" placeholder="Amount ₹" title="Amount (₹)">
+        <select class="m" data-name="${n}" data-cat="${cat}" data-unit="${unit}" data-rate="${a/total}" data-physmax="${physMax}">
+          <option value="">Cash / Physical</option><option value="Cash">Cash</option><option value="Physical item" ${physFull?'disabled':''}>Physical item</option></select></div>`;}).join("")).join("");
+  document.querySelectorAll("#items .item").forEach(r=>{
+    r.querySelector(".q").oninput=update;
+    r.querySelector(".m").onchange=update;
+  });
+  renderProgress();
+}
+function renderProgress(){
+  let allReq=0,allGot=0;
+  const bar=(label,req,got,cls="")=>{const pc=Math.min(100,Math.round(got/req*100));
+    return `<div class="pb ${cls}"><div class="t"><span>${label}</span><span>₹${inr(got)} / ₹${inr(req)} (${pc}%)</span></div><div class="track"><div class="fill" style="width:${pc}%"></div></div></div>`};
+  const cats=Object.entries(DATA).map(([cat,list])=>{
+    const req=list.reduce((t,i)=>t+i[2],0), got=list.reduce((t,i)=>t+((taken[i[0]]||{}).amt||0),0);
+    allReq+=req;allGot+=got;return bar(cat,req,got)}).join("");
+  $("#pbars").innerHTML=bar("Overall",allReq,allGot,"all")+cats;
+}
+// all rows where a quantity has been entered
+function picks(){
+  return [...document.querySelectorAll("#items .item")].map(r=>{
+    const s=r.querySelector(".m"), qi=r.querySelector(".q"), q=parseFloat(qi.value)||0;
+    return {row:r,q,physMax:+s.dataset.physmax,mode:s.value,name:s.dataset.name,cat:s.dataset.cat,unit:s.dataset.unit,
+      qty:(q+" "+s.dataset.unit).trim(),amount:Math.round(q*s.dataset.rate)};
+  }).filter(x=>x.q>0);
+}
+function update(){
+  document.querySelectorAll("#items .amt").forEach(a=>a.value="");
+  const p=picks();
+  p.forEach(x=>{x.row.querySelector(".amt").value="₹"+inr(x.amount)});
+  $("#count").textContent=p.length+" item"+(p.length==1?"":"s");
+  const cash=p.filter(x=>x.mode=="Cash").reduce((t,x)=>t+x.amount,0);
+  $("#cash").textContent=inr(cash);
+  $("#payamt").textContent=inr(cash);
+  $("#paybox").style.display=p.some(x=>x.mode=="Cash")?"block":"none";
+}
+function toJpeg(file){return new Promise((res,rej)=>{const img=new Image();
+  img.onload=()=>{const s=Math.min(1,1200/Math.max(img.width,img.height)),c=document.createElement("canvas");
+    c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    res(c.toDataURL("image/jpeg",.7).split(",")[1])};
+  img.onerror=()=>rej(new Error("Could not read the image"));img.src=URL.createObjectURL(file)})}
+
+async function loadTaken(){
+  if(!SCRIPT_URL.startsWith("http")){$("#pbars").textContent="Website not connected to the Google Sheet yet (set SCRIPT_URL).";return}
+  try{
+    const j=await (await fetch(SCRIPT_URL)).json();
+    taken=j.taken||{};
+    DATA={};
+    (j.items||[]).forEach(([cat,name,qty,unit,amt])=>{
+      cat=String(cat).trim()||"Other";
+      (DATA[cat]=DATA[cat]||[]).push([String(name).trim(),(qty+" "+(unit||"")).trim(),+amt]);
+    });
+  }catch(e){$("#pbars").textContent="Could not load items. Please refresh."}
+}
+
+$("#f").onsubmit=async e=>{
+  e.preventDefault();
+  const p=picks(), f=e.target;
+  if(!p.length){alert("Please select at least one item.");return}
+  const flatId=`T${f.tower.value} - ${f.flat.value.trim()}`;
+  const nomode=p.find(x=>!x.mode);
+  if(nomode){alert(`Please choose Cash or Physical item for ${nomode.name}.`);return}
+  const bad=p.find(x=>x.mode=="Physical item"&&x.q>x.physMax);
+  if(bad){alert(`Physical pledge for ${bad.name} can be at most ${bad.physMax} ${bad.unit} (120% limit). You can pledge any extra as Cash.`);return}
+  const rows=p.map(x=>({name:f.name.value.trim(),flat:flatId,mobile:f.mobile.value,
+    category:x.cat,item:x.name,qty:x.qty,amount:x.amount,mode:x.mode}));
+  const hasCash=rows.some(r=>r.mode=="Cash"), file=$("#proof").files[0];
+  if(hasCash&&!file){alert("Please upload the payment screenshot for your cash items.");return}
+  const btn=$("#btn");btn.disabled=true;btn.textContent="Submitting…";
+  try{
+    if(!SCRIPT_URL.startsWith("http"))throw new Error("SCRIPT_URL not configured");
+    const proof=hasCash?await toJpeg(file):null;
+    await fetch(SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({rows,proof})});
+    showResult(rows);
+  }catch(err){
+    alert("Could not submit: "+err.message);btn.disabled=false;btn.textContent="Submit donation";
+  }
+};
+
+function showResult(rows){
+  const cash=rows.filter(r=>r.mode=="Cash"), phys=rows.filter(r=>r.mode!="Cash");
+  const total=cash.reduce((t,r)=>t+r.amount,0);
+  let h=`<h2 class="ok">🙏 Thank you, ${rows[0].name} (${rows[0].flat})!</h2>`;
+  if(phys.length)h+=`<p><b>Physical contribution:</b> ${phys.map(r=>r.item).join(", ")}<br>Thank you for your contribution! Our respective POC will be reaching out to you.</p>`;
+  if(cash.length)h+=`<hr><p><b>Cash items:</b> ${cash.map(r=>r.item).join(", ")}<br>Payment of <b>₹${inr(total)}</b> and your screenshot have been received. We'll verify it shortly.</p>`;
+  const r=$("#result");r.innerHTML=h;r.style.display="block";
+  $("#f").style.display="none";r.scrollIntoView({behavior:"smooth"});
+}
+
+loadTaken().then(render);
+</script>
+</body>
+</html>
