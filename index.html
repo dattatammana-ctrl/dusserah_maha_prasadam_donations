@@ -65,7 +65,7 @@ button:disabled{opacity:.5}
   </section>
   <section>
     <h2>Items needed</h2>
-    <p style="margin-top:0;font-size:.9rem">For each item you want to contribute: enter the <b>quantity</b>, see the <b>amount</b>, then choose <b>Cash</b> or <b>Physical item</b>.</p>
+    <p style="margin-top:0;font-size:.9rem">For each item you want to contribute: enter either the <b>quantity</b> or the <b>amount</b> (the other fills in automatically), then choose <b>Cash</b> or <b>Physical item</b>.</p>
     <div id="items"></div>
   </section>
   <div class="bar">
@@ -129,7 +129,7 @@ const filt=()=>{const s=q("#aq").value.toLowerCase(),m=q("#amode").value;
   return data.filter(r=>(!m||r[8]===m)&&(!s||r.join(" ").toLowerCase().includes(s)))};
 function draw(){
   const rows=filt(), sum=m=>rows.filter(r=>m(r[8])).reduce((t,r)=>t+(+r[7]||0),0);
-  q("#asum").innerHTML=`<span>Rows: ${rows.length}</span><span>Donors: ${new Set(rows.map(r=>r[2]+r[3])).size}</span><span>Cash: ₹${sum(x=>x==="Cash").toLocaleString("en-IN")}</span><span>Physical (value): ₹${sum(x=>x!=="Cash").toLocaleString("en-IN")}</span>`;
+  q("#asum").innerHTML=`<span>Rows: ${rows.length}</span><span>Donors: ${new Set(rows.map(r=>r[2]+r[3])).size}</span><span>Cash: ₹${sum(x=>x==="Cash").toLocaleString("en-IN",{maximumFractionDigits:2})}</span><span>Physical (value): ₹${sum(x=>x!=="Cash").toLocaleString("en-IN",{maximumFractionDigits:2})}</span>`;
   q("#at").innerHTML="<tr>"+head.map(h=>`<th>${esc(h)}</th>`).join("")+"</tr>"+rows.map(r=>"<tr>"+r.map(c=>/^https?:\/\//.test(c)?`<td><a href="${esc(c)}" target="_blank">View</a></td>`:`<td>${esc(c)}</td>`).join("")+"</tr>").join("");
 }
 const dl=(n,t,c)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=n;a.click()};
@@ -164,25 +164,29 @@ document.addEventListener("click",e=>{
   t.scrollIntoView({behavior:"smooth",block:"start"});
   t.classList.remove("flash");void t.offsetWidth;t.classList.add("flash");
 });
-const $=s=>document.querySelector(s), inr=n=>n.toLocaleString("en-IN");
+const $=s=>document.querySelector(s),
+      inr=n=>n.toLocaleString("en-IN",{maximumFractionDigits:2}),
+      r2=x=>Math.round(x*100)/100;
 let idx=0, taken={};
 
 function render(){
   $("#items").innerHTML = cats().map(([cat,list])=>
     `<div class="cat" id="${slug(cat)}">${cat}</div>`+[...list].sort((x,y)=>remAmt(y)-remAmt(x)).map(([n,q,a])=>{
       const m=q.match(/^([\d.]+)\s*(.*)$/), total=parseFloat(m[1]), unit=m[2];
-      const t=taken[n]||{qty:0,phys:0,by:""}, r2=x=>Math.round(x*100)/100;
+      const t=taken[n]||{qty:0,phys:0,by:""};
       const left=r2(Math.max(0,total-t.qty)), physMax=r2(total*1.2-t.phys), physFull=physMax<=0;
       const st=t.qty<=0?'new':(left>0?'part':'met');
       const chip={new:'',part:`<span title="Partly pledged">🟡</span> <small class="pn">${left} ${unit} still needed</small>`,met:`<span title="Requirement met">✅</span>`}[st];
       return `<div class="item s-${st} ${physFull?'taken':''}">
         <div><span class="nm">${n}</span> ${chip}<small>Needed ${q} · ₹${inr(a)} total${physFull?' · physical limit (120%) reached, cash still welcome':''}</small>${t.by?`<span class="badge">Pledged by ${t.by}</span>`:''}</div>
-        <input class="q" type="number" min="0.5" step="0.5" placeholder="Qty (${unit})" title="Quantity (${unit})">
-        <input class="amt" readonly tabindex="-1" placeholder="Amount ₹" title="Amount (₹)">
+        <input class="q" type="number" min="0" step="any" inputmode="decimal" placeholder="Qty (${unit})" title="Quantity (${unit})">
+        <input class="amt" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount ₹" title="Amount (₹) – type either quantity or amount">
         <select class="m" data-name="${n}" data-cat="${cat}" data-unit="${unit}" data-rate="${a/total}" data-physmax="${physMax}">
           <option value="">Cash / Physical</option><option value="Cash">Cash</option><option value="Physical item" ${physFull?'disabled':''}>Physical item</option></select></div>`;}).join("")).join("");
   document.querySelectorAll("#items .item").forEach(r=>{
-    r.querySelector(".q").oninput=update;
+    const qi=r.querySelector(".q"), ai=r.querySelector(".amt"), rate=+r.querySelector(".m").dataset.rate;
+    qi.oninput=()=>{const v=parseFloat(qi.value);ai.value=v>0?r2(v*rate):"";update()};            // qty -> amount
+    ai.oninput=()=>{const v=parseFloat(ai.value);qi.value=(v>0&&rate>0)?r2(v/rate):"";update()};   // amount -> qty
     r.querySelector(".m").onchange=update;
   });
   renderProgress();
@@ -197,18 +201,17 @@ function renderProgress(){
     allReq+=req;allGot+=got;return bar(cat,req,got)}).join("");
   $("#pbars").innerHTML=bar("Overall",allReq,allGot,"all")+catBars;
 }
-// all rows where a quantity has been entered
+// all rows where a quantity (or amount) has been entered
 function picks(){
   return [...document.querySelectorAll("#items .item")].map(r=>{
     const s=r.querySelector(".m"), qi=r.querySelector(".q"), q=parseFloat(qi.value)||0;
     return {row:r,q,physMax:+s.dataset.physmax,mode:s.value,name:s.dataset.name,cat:s.dataset.cat,unit:s.dataset.unit,
-      qty:(q+" "+s.dataset.unit).trim(),amount:Math.round(q*s.dataset.rate)};
+      qty:(q+" "+s.dataset.unit).trim(),
+      amount:parseFloat(r.querySelector(".amt").value)||r2(q*s.dataset.rate)};
   }).filter(x=>x.q>0);
 }
 function update(){
-  document.querySelectorAll("#items .amt").forEach(a=>a.value="");
   const p=picks();
-  p.forEach(x=>{x.row.querySelector(".amt").value="₹"+inr(x.amount)});
   $("#count").textContent=p.length+" item"+(p.length==1?"":"s");
   const cash=p.filter(x=>x.mode=="Cash").reduce((t,x)=>t+x.amount,0);
   $("#cash").textContent=inr(cash);
@@ -243,7 +246,7 @@ $("#f").onsubmit=async e=>{
   const flatId=`T${f.tower.value} - ${f.flat.value.trim()}`;
   const nomode=p.find(x=>!x.mode);
   if(nomode){alert(`Please choose Cash or Physical item for ${nomode.name}.`);return}
-  const bad=p.find(x=>x.mode=="Physical item"&&x.q>x.physMax);
+  const bad=p.find(x=>x.mode=="Physical item"&&x.q>x.physMax+0.005);
   if(bad){alert(`Physical pledge for ${bad.name} can be at most ${bad.physMax} ${bad.unit} (120% limit). You can pledge any extra as Cash.`);return}
   const rows=p.map(x=>({name:f.name.value.trim(),flat:flatId,mobile:f.mobile.value,
     category:x.cat,item:x.name,qty:x.qty,amount:x.amount,mode:x.mode}));
