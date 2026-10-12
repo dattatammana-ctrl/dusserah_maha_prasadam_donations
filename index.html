@@ -156,6 +156,13 @@ let DATA = {};   // filled from the "Items" tab of the Google Sheet
 const remAmt=([n,q,a])=>Math.max(0,a-((taken[n]||{}).amt||0));   // ₹ still needed for an item
 const catPct=l=>{const r=l.reduce((t,i)=>t+i[2],0),g=l.reduce((t,i)=>t+((taken[i[0]]||{}).amt||0),0);return r?g/r:1};   // % funded by amount
 const cats=()=>Object.entries(DATA).sort((a,b)=>catPct(a[1])-catPct(b[1]));
+const FUND={cat:"Annadanam/MahaPrasadam Fund",item:"Plates sponsored",rate:116};   // permanent, no target, always on top
+const fundHtml=()=>{const t=taken[FUND.item]||{qty:0,amt:0};
+  return `<div class="cat" id="${slug(FUND.cat)}">${FUND.cat}</div><div class="item fund">
+    <div><span class="nm">Plates</span> <small>₹${FUND.rate} per plate · cash only · always open, no target</small><span class="badge">Contributed so far: ${r2(t.qty)} plates · ₹${inr(t.amt)}</span></div>
+    <input class="q" type="number" min="0" step="any" inputmode="decimal" placeholder="Plates" title="Number of plates">
+    <input class="amt" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount ₹" title="Amount (₹) – type either plates or amount">
+    <select class="m" data-name="${FUND.item}" data-cat="${FUND.cat}" data-unit="plates" data-rate="${FUND.rate}" data-physmax="0"><option value="Cash" selected>Cash</option></select></div>`};
 const slug=s=>"cat-"+String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-");
 document.addEventListener("click",e=>{
   const a=e.target.closest(".golink");if(!a)return;
@@ -170,15 +177,15 @@ const $=s=>document.querySelector(s),
 let idx=0, taken={};
 
 function render(){
-  $("#items").innerHTML = cats().map(([cat,list])=>
-    `<div class="cat" id="${slug(cat)}">${cat}</div>`+[...list].sort((x,y)=>remAmt(y)-remAmt(x)).map(([n,q,a])=>{
+  $("#items").innerHTML = fundHtml() + cats().map(([cat,list])=>
+    `<div class="cat" id="${slug(cat)}">${cat}</div>`+[...list].sort((x,y)=>remAmt(y)-remAmt(x)).map(([n,q,a,co])=>{
       const m=q.match(/^([\d.]+)\s*(.*)$/), total=parseFloat(m[1]), unit=m[2];
       const t=taken[n]||{qty:0,phys:0,by:""};
-      const left=r2(Math.max(0,total-t.qty)), physMax=r2(total*1.2-t.phys), physFull=physMax<=0;
+      const left=r2(Math.max(0,total-t.qty)), physMax=co?0:r2(total*1.2-t.phys), physFull=physMax<=0;
       const st=t.qty<=0?'new':(left>0?'part':'met');
       const chip={new:'',part:`<span title="Partly pledged">🟡</span> <small class="pn">${left} ${unit} still needed</small>`,met:`<span title="Requirement met">✅</span>`}[st];
       return `<div class="item s-${st} ${physFull?'taken':''}">
-        <div><span class="nm">${n}</span> ${chip}<small>Needed ${q} · ₹${inr(a)} total${physFull?' · physical limit (120%) reached, cash still welcome':''}</small>${t.by?`<span class="badge">Pledged by ${t.by}</span>`:''}</div>
+        <div><span class="nm">${n}</span> ${chip}<small>Needed ${q} · ₹${inr(a)} total${co?` · ₹${r2(a/total)} per ${unit.replace(/s$/,'')} · cash only`:''}${physFull&&!co?' · physical limit (120%) reached, cash still welcome':''}</small>${t.by?`<span class="badge">Pledged by ${t.by}</span>`:''}</div>
         <input class="q" type="number" min="0" step="any" inputmode="decimal" placeholder="Qty (${unit})" title="Quantity (${unit})">
         <input class="amt" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount ₹" title="Amount (₹) – type either quantity or amount">
         <select class="m" data-name="${n}" data-cat="${cat}" data-unit="${unit}" data-rate="${a/total}" data-physmax="${physMax}">
@@ -199,7 +206,9 @@ function renderProgress(){
   const catBars=cats().map(([cat,list])=>{
     const req=list.reduce((t,i)=>t+i[2],0), got=list.reduce((t,i)=>t+((taken[i[0]]||{}).amt||0),0);
     allReq+=req;allGot+=got;return bar(cat,req,got)}).join("");
-  $("#pbars").innerHTML=bar("Overall",allReq,allGot,"all")+catBars;
+  const f=taken[FUND.item]||{qty:0,amt:0};
+  const fundLine=`<div class="pb"><div class="t"><a href="#${slug(FUND.cat)}" class="golink" data-go="${slug(FUND.cat)}">${FUND.cat} ↓</a><span>${r2(f.qty)} plates · ₹${inr(f.amt)} contributed (no target)</span></div></div>`;
+  $("#pbars").innerHTML=bar("Overall",allReq,allGot,"all")+fundLine+catBars;
 }
 // all rows where a quantity (or amount) has been entered
 function picks(){
@@ -232,9 +241,10 @@ async function loadTaken(){
     const j=await (await fetch(SCRIPT_URL)).json();
     taken=j.taken||{};
     DATA={};
-    (j.items||[]).forEach(([cat,name,qty,unit,amt])=>{
+    (j.items||[]).forEach(([cat,name,qty,unit,amt,mode])=>{
+      if(String(name).trim()===FUND.item)return;
       cat=String(cat).trim()||"Other";
-      (DATA[cat]=DATA[cat]||[]).push([String(name).trim(),(qty+" "+(unit||"")).trim(),+amt]);
+      (DATA[cat]=DATA[cat]||[]).push([String(name).trim(),(qty+" "+(unit||"")).trim(),+amt,/cash/i.test(mode||"")]);
     });
   }catch(e){$("#pbars").textContent="Could not load items. Please refresh."}
 }
