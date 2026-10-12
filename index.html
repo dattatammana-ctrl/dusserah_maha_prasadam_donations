@@ -62,19 +62,25 @@ button:disabled{opacity:.5}
     <p style="margin-top:0;font-size:.9rem">For each item you want to contribute: enter the <b>quantity</b>, see the <b>amount</b>, then choose <b>Cash</b> or <b>Physical item</b>.</p>
     <div id="items"></div>
   </section>
-  <section id="paybox" style="display:none;text-align:center">
-    <h2>Cash payment</h2>
-    <p>Pay <b>₹<span id="payamt">0</span></b> using any UPI app, then upload the payment screenshot.</p>
-    <img src="upi-qr.jpg" alt="UPI QR" style="max-width:240px;width:100%;border:1px solid #ddd;border-radius:12px">
-    <p>UPI ID: <b>Q099884932@ybl</b></p>
-    <label>Payment screenshot / mandate *</label>
-    <input type="file" id="proof" accept="image/*" style="max-width:360px">
-  </section>
   <div class="bar">
     <div><span id="count">0 items</span> · Cash payable: <b>₹<span id="cash">0</span></b></div>
     <button id="btn" type="submit">Submit donation</button>
   </div>
 </form>
+<div id="paybox" style="display:none;position:fixed;inset:0;background:#0008;z-index:50;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:14px;padding:20px;max-width:380px;width:100%;max-height:92vh;overflow:auto;text-align:center">
+    <h2 style="margin-top:0">Cash payment</h2>
+    <p>Pay <b>₹<span id="payamt">0</span></b> using any UPI app, then upload the payment screenshot.</p>
+    <img src="upi-qr.jpg" alt="UPI QR" style="max-width:220px;width:100%;border:1px solid #ddd;border-radius:12px">
+    <p>UPI ID: <b>Q099884932@ybl</b></p>
+    <label>Payment screenshot / mandate *</label>
+    <input type="file" id="proof" accept="image/*">
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button type="button" id="pcancel" style="flex:1;background:#999">Cancel</button>
+      <button type="button" id="pgo" style="flex:2">Confirm &amp; submit</button>
+    </div>
+  </div>
+</div>
 <section id="result"></section>
 </div>
 
@@ -187,8 +193,10 @@ function update(){
   const cash=p.filter(x=>x.mode=="Cash").reduce((t,x)=>t+x.amount,0);
   $("#cash").textContent=inr(cash);
   $("#payamt").textContent=inr(cash);
-  $("#paybox").style.display=p.some(x=>x.mode=="Cash")?"block":"none";
 }
+const modal=o=>$("#paybox").style.display=o?"flex":"none";
+$("#pcancel").onclick=()=>modal(false);
+$("#pgo").onclick=()=>$("#f").requestSubmit();
 function toJpeg(file){return new Promise((res,rej)=>{const img=new Image();
   img.onload=()=>{const s=Math.min(1,1200/Math.max(img.width,img.height)),c=document.createElement("canvas");
     c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);
@@ -220,15 +228,20 @@ $("#f").onsubmit=async e=>{
   const rows=p.map(x=>({name:f.name.value.trim(),flat:flatId,mobile:f.mobile.value,
     category:x.cat,item:x.name,qty:x.qty,amount:x.amount,mode:x.mode}));
   const hasCash=rows.some(r=>r.mode=="Cash"), file=$("#proof").files[0];
-  if(hasCash&&!file){alert("Please upload the payment screenshot for your cash items.");return}
-  const btn=$("#btn");btn.disabled=true;btn.textContent="Submitting…";
+  if(hasCash&&!file){
+    $("#payamt").textContent=inr(rows.filter(r=>r.mode=="Cash").reduce((t,r)=>t+r.amount,0));
+    if($("#paybox").style.display=="flex")alert("Please upload the payment screenshot to continue.");
+    else modal(true);
+    return;
+  }
+  const btn=$("#btn");btn.disabled=true;btn.textContent="Submitting…";$("#pgo").disabled=true;
   try{
     if(!SCRIPT_URL.startsWith("http"))throw new Error("SCRIPT_URL not configured");
     const proof=hasCash?await toJpeg(file):null;
     await fetch(SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({rows,proof})});
     showResult(rows);
   }catch(err){
-    alert("Could not submit: "+err.message);btn.disabled=false;btn.textContent="Submit donation";
+    alert("Could not submit: "+err.message);btn.disabled=false;btn.textContent="Submit donation";$("#pgo").disabled=false;
   }
 };
 
@@ -238,6 +251,7 @@ function showResult(rows){
   let h=`<h2 class="ok">🙏 Thank you, ${rows[0].name} (${rows[0].flat})!</h2>`;
   if(phys.length)h+=`<p><b>Physical contribution:</b> ${phys.map(r=>r.item).join(", ")}<br>Thank you for your contribution! Our respective POC will be reaching out to you.</p>`;
   if(cash.length)h+=`<hr><p><b>Cash items:</b> ${cash.map(r=>r.item).join(", ")}<br>Payment of <b>₹${inr(total)}</b> and your screenshot have been received. We'll verify it shortly.</p>`;
+  modal(false);
   const r=$("#result");r.innerHTML=h;r.style.display="block";
   $("#f").style.display="none";r.scrollIntoView({behavior:"smooth"});
 }
