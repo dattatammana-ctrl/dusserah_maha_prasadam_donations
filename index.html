@@ -41,6 +41,18 @@ button:disabled{opacity:.5}
 .pb .track{height:14px;background:#eee;border-radius:7px;overflow:hidden}
 .pb .fill{height:100%;background:linear-gradient(90deg,#f5a623,#2e9e4f);border-radius:7px;transition:width .4s}
 .pb.all .track{height:20px}.pb.all .t{font-size:1rem;font-weight:700;color:var(--d)}
+
+.fundsec{border:3px solid #f5a623;background:linear-gradient(180deg,#fff8e1,#fff);box-shadow:0 4px 14px #d9531e33;position:relative;scroll-margin-top:12px}
+.fundsec .ribbon{position:absolute;top:-12px;left:16px;background:var(--o);color:#fff;font-size:.75rem;font-weight:700;padding:3px 12px;border-radius:12px;letter-spacing:.5px}
+.fundsec .fh{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.fundsec .fh svg{width:64px;height:64px;flex:none;animation:hb 2.2s ease-in-out infinite}
+@keyframes hb{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.fundsec h2{font-size:1.4rem;margin:0}
+.fundsec .sub{margin:2px 0 0;font-size:1rem;color:#555}
+.fundsec .item{border-bottom:0;font-size:1.05rem}
+.fundsec .item .nm{font-size:1.15rem}
+.fundsec .item small{font-size:.9rem}
+.fundsec.flash{animation:fl2 1.4s}@keyframes fl2{0%,60%{background:#ffe3a3}100%{background:#fff}}
 </style>
 </head>
 <body>
@@ -62,6 +74,10 @@ button:disabled{opacity:.5}
       <div><label>Flat number *</label><input name="flat" required inputmode="numeric" pattern="[0-9]+"></div>
       <div><label>Mobile number *</label><input name="mobile" required inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="10 digits"></div>
     </div>
+  </section>
+  <section class="fundsec" id="cat-annadanam-mahaprasadam-fund">
+    <span class="ribbon">SPECIAL REQUEST</span>
+    <div id="fund"></div>
   </section>
   <section>
     <h2>Items needed</h2>
@@ -157,9 +173,11 @@ const remAmt=([n,q,a])=>Math.max(0,a-((taken[n]||{}).amt||0));   // ₹ still ne
 const catPct=l=>{const r=l.reduce((t,i)=>t+i[2],0),g=l.reduce((t,i)=>t+((taken[i[0]]||{}).amt||0),0);return r?g/r:1};   // % funded by amount
 const cats=()=>Object.entries(DATA).sort((a,b)=>catPct(a[1])-catPct(b[1]));
 const FUND={cat:"Annadanam/MahaPrasadam Fund",item:"Plates sponsored",rate:116};   // permanent, no target, always on top
+const HUNDI=`<svg viewBox="0 0 64 64" aria-label="Hundi"><circle cx="32" cy="9" r="6" fill="#f5c542" stroke="#b8860b" stroke-width="1.5"/><rect x="10" y="16" width="44" height="42" rx="6" fill="#d9531e" stroke="#7a2a0b" stroke-width="2"/><rect x="10" y="16" width="44" height="9" rx="4" fill="#7a2a0b"/><rect x="21" y="19" width="22" height="3.5" rx="1.7" fill="#2b1206"/><path d="M32 30l3 6 6.5.9-4.7 4.5 1.1 6.4-5.9-3.1-5.9 3.1 1.1-6.4-4.7-4.5 6.5-.9z" fill="#ffd54a"/><rect x="16" y="52" width="32" height="3" rx="1.5" fill="#f5a623"/></svg>`;
 const fundHtml=()=>{const t=taken[FUND.item]||{qty:0,amt:0};
-  return `<div class="cat" id="${slug(FUND.cat)}">${FUND.cat}</div><div class="item fund">
-    <div><span class="nm">Plates</span> <small>₹${FUND.rate} per plate · cash only · always open, no target</small><span class="badge">Contributed so far: ${r2(t.qty)} plates · ₹${inr(t.amt)}</span></div>
+  return `<div class="fh">${HUNDI}<div><h2>${FUND.cat}</h2><p class="sub">Every plate counts, sponsor plates for the Mahaprasadam. Always open, no target.</p></div></div>
+  <div class="item fund">
+    <div><span class="nm">Sponsor plates</span> <small>₹${FUND.rate} per plate · cash only</small><span class="badge">Contributed so far: ${r2(t.qty)} plates · ₹${inr(t.amt)}</span></div>
     <input class="q" type="number" min="0" step="any" inputmode="decimal" placeholder="Plates" title="Number of plates">
     <input class="amt" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount ₹" title="Amount (₹) – type either plates or amount">
     <select class="m" data-name="${FUND.item}" data-cat="${FUND.cat}" data-unit="plates" data-rate="${FUND.rate}" data-physmax="0"><option value="Cash" selected>Cash</option></select></div>`};
@@ -177,7 +195,8 @@ const $=s=>document.querySelector(s),
 let idx=0, taken={};
 
 function render(){
-  $("#items").innerHTML = fundHtml() + cats().map(([cat,list])=>
+  $("#fund").innerHTML = fundHtml();
+  $("#items").innerHTML = cats().map(([cat,list])=>
     `<div class="cat" id="${slug(cat)}">${cat}</div>`+[...list].sort((x,y)=>remAmt(y)-remAmt(x)).map(([n,q,a,co])=>{
       const m=q.match(/^([\d.]+)\s*(.*)$/), total=parseFloat(m[1]), unit=m[2];
       const t=taken[n]||{qty:0,phys:0,by:""};
@@ -190,7 +209,7 @@ function render(){
         <input class="amt" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount ₹" title="Amount (₹) – type either quantity or amount">
         <select class="m" data-name="${n}" data-cat="${cat}" data-unit="${unit}" data-rate="${a/total}" data-physmax="${physMax}">
           <option value="">Cash / Physical</option><option value="Cash">Cash</option><option value="Physical item" ${physFull?'disabled':''}>Physical item</option></select></div>`;}).join("")).join("");
-  document.querySelectorAll("#items .item").forEach(r=>{
+  document.querySelectorAll("#f .item").forEach(r=>{
     const qi=r.querySelector(".q"), ai=r.querySelector(".amt"), rate=+r.querySelector(".m").dataset.rate;
     qi.oninput=()=>{const v=parseFloat(qi.value);ai.value=v>0?r2(v*rate):"";update()};            // qty -> amount
     ai.oninput=()=>{const v=parseFloat(ai.value);qi.value=(v>0&&rate>0)?r2(v/rate):"";update()};   // amount -> qty
@@ -206,13 +225,11 @@ function renderProgress(){
   const catBars=cats().map(([cat,list])=>{
     const req=list.reduce((t,i)=>t+i[2],0), got=list.reduce((t,i)=>t+((taken[i[0]]||{}).amt||0),0);
     allReq+=req;allGot+=got;return bar(cat,req,got)}).join("");
-  const f=taken[FUND.item]||{qty:0,amt:0};
-  const fundLine=`<div class="pb"><div class="t"><a href="#${slug(FUND.cat)}" class="golink" data-go="${slug(FUND.cat)}">${FUND.cat} ↓</a><span>${r2(f.qty)} plates · ₹${inr(f.amt)} contributed (no target)</span></div></div>`;
-  $("#pbars").innerHTML=bar("Overall",allReq,allGot,"all")+fundLine+catBars;
+  $("#pbars").innerHTML=bar("Overall",allReq,allGot,"all")+catBars;
 }
 // all rows where a quantity (or amount) has been entered
 function picks(){
-  return [...document.querySelectorAll("#items .item")].map(r=>{
+  return [...document.querySelectorAll("#f .item")].map(r=>{
     const s=r.querySelector(".m"), qi=r.querySelector(".q"), q=parseFloat(qi.value)||0;
     return {row:r,q,physMax:+s.dataset.physmax,mode:s.value,name:s.dataset.name,cat:s.dataset.cat,unit:s.dataset.unit,
       qty:(q+" "+s.dataset.unit).trim(),
